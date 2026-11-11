@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 package org.microg.vending.billing.core
 
 import android.accounts.AccountManager
@@ -14,17 +15,12 @@ import org.microg.gms.deviceinfo.DeviceEnvInfo
 import org.microg.gms.utils.ExtendedPackageInfo
 import org.microg.gms.utils.toBase64
 import org.microg.vending.billing.proto.*
+import org.microg.vending.billing.NPatchBillingBridge
+import org.microg.gms.utils.digest
 import java.io.IOException
 
 private val skuDetailsCache = IAPCacheManager(2048)
 
-private fun dumpAcquireBase64(marker: String, bytes: ByteArray) {
-    Log.d("IAPCore", "===== $marker raw base64 (${bytes.size} bytes) BEGIN =====")
-    Base64.encodeToString(bytes, 11)
-        .chunked(200)
-        .forEach { Log.d("IAPCore", "[$marker] $it") }
-    Log.d("IAPCore", "===== $marker END =====")
-}
 
 class IAPCore(
     private val context: Context,
@@ -207,7 +203,8 @@ class IAPCore(
                 } else {
                     this.derivedApkIdAbsent = DerivedApkIdAbsent.Builder().build()
                 }
-                this.skuPackageSignatureSha256 = extendedPackageInfo.firstCertificateSha256?.toBase64(11)
+                this.skuPackageSignatureSha256 = (NPatchBillingBridge.originalCertificateResolver?.getCertificate(context, skuPackageName)
+                    ?.digest("SHA-256") ?: extendedPackageInfo.firstCertificateSha256)?.toBase64(11)
                 this.secondaryAccount = AccountNameMessage.Builder().apply {
                     this.accountName = params.buyFlowParams.accountName
                 }.build()
@@ -307,7 +304,6 @@ class IAPCore(
                 }.build()
             }
 
-        dumpAcquireBase64("acquireRequest", acquireRequest.encode())
 
         return try {
             val response = HttpClient().post(
@@ -318,7 +314,6 @@ class IAPCore(
                 GoogleApiResponse.ADAPTER
             )
             response.payload?.acquireResponse?.let {
-                dumpAcquireBase64("acquireResponse", it.encode())
             }
             AcquireResult.parseFrom(params, acquireRequest, response.payload?.acquireResponse)
         } catch (e: Exception) {

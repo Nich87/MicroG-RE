@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -27,7 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -98,7 +99,7 @@ fun PasswdInputDialog(viewState: PasswdInputViewState) {
                         ),
                         singleLine = true,
                         isError = viewState.hasError,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                        colors = OutlinedTextFieldDefaults.colors(
                             errorLabelColor = if (viewState.hasError) MaterialTheme.colorScheme.error else LocalContentColor.current,
                             errorBorderColor = if (viewState.hasError) MaterialTheme.colorScheme.error else LocalContentColor.current
                         ),

@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -25,8 +26,8 @@ object PurchaseManager {
     fun addPurchase(account: Account, pkgName: String, purchaseItem: PurchaseItem) =
         database.addPurchase(account, pkgName, purchaseItem)
 
-    private class PurchaseDB(mContext: Context?) : SQLiteOpenHelper(
-        mContext, DATABASE_NAME, null, DATABASE_VERSION
+    private class PurchaseDB(mContext: Context) : SQLiteOpenHelper(
+        mContext, java.io.File(mContext.noBackupFilesDir, DATABASE_NAME).absolutePath, null, DATABASE_VERSION
     ) {
         @Synchronized
         fun queryPurchases(account: Account, pkgName: String, type: String): List<PurchaseItem> {

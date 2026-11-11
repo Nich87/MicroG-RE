@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 package org.microg.vending.billing.core
 
 import android.util.Base64
@@ -103,7 +104,7 @@ fun createClientToken(deviceInfo: DeviceEnvInfo, authData: AuthData): String {
                             this.phoneDeviceId = it.phoneDeviceId
                             this.phoneDeviceId1 = it.phoneDeviceId
                         }
-                        this.gsfId = authData.gsfId.toLong(16)
+                        this.gsfId = java.lang.Long.parseUnsignedLong(authData.gsfId, 16)
                         this.device = deviceInfo.device
                         this.product = deviceInfo.product
                         this.model = deviceInfo.model

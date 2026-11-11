@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -57,7 +58,6 @@ fun resultBundle(@BillingResponseCode code: Int, msg: String?, data: Bundle = Bu
         "DEBUG_MESSAGE" to msg
     )
     res.putAll(data)
-    Log.d(TAG, "Result: $res")
     return res
 }
 
@@ -75,8 +75,11 @@ fun createClient(context: Context, pkgName: String): ClientInfo? {
         val packageInfo = context.packageManager.getExtendedPackageInfo(pkgName)
         ClientInfo(
             pkgName,
-            packageInfo.certificates.firstOrNull()?.digest("MD5")?.toBase64(Base64.URL_SAFE + Base64.NO_WRAP + Base64.NO_PADDING) ?: "",
-            packageInfo.shortVersionCode
+            (NPatchBillingBridge.originalCertificateResolver?.getCertificate(context, pkgName)?.digest("MD5")
+                ?: packageInfo.certificates.firstOrNull()?.digest("MD5"))
+                ?.toBase64(Base64.URL_SAFE + Base64.NO_WRAP + Base64.NO_PADDING) ?: "",
+            NPatchBillingBridge.originalVersionResolver?.getVersionCode(context, pkgName)
+                ?: packageInfo.shortVersionCode
         )
     } catch (e: Exception) {
         if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "createClient", e)

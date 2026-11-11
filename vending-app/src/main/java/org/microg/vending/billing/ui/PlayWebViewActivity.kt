@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -94,7 +95,6 @@ class PlayWebViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         val extras = intent?.extras?.also { it.keySet() }
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "Invoked with ${intent.action} and extras $extras")
         super.onCreate(savedInstanceState)
         if (!parseParams()) {
             finish()

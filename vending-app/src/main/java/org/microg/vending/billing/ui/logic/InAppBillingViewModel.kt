@@ -1,9 +1,12 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.microg.vending.billing.ui.logic
+
+import org.microg.vending.billing.GMS_PACKAGE_NAME
 
 import android.content.Context
 import android.content.Intent
@@ -21,6 +24,7 @@ import com.android.billingclient.api.BillingClient
 import com.google.android.gms.wallet.firstparty.pm.SecurePaymentsData
 import com.google.android.gms.wallet.firstparty.pm.SecurePaymentsPayload
 import kotlinx.coroutines.Dispatchers
+import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -126,11 +130,13 @@ class InAppBillingViewModel : ViewModel() {
             val param = startParams!!.getString(KEY_IAP_SHEET_UI_PARAM)
             val (statusCode, encodedRapt) = try {
                 200 to InAppBillingServiceImpl.requestAuthProofToken(ContextProvider.context, param!!, password)
+            } catch (e: ClientRequestException) {
+                Log.w(TAG, "Authentication rejected: HTTP ${e.response.status.value}")
+                e.response.status.value to null
             } catch (e: Exception) {
-                Log.w(TAG, e)
+                Log.w(TAG, "Authentication request failed", e)
                 -1 to null
             }
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "requestAuthProofToken statusCode=$statusCode, encodedRapt=$encodedRapt")
             if (encodedRapt.isNullOrEmpty()) {
                 loadingDialogVisible = false
                 val errMsg = when (statusCode) {
@@ -142,7 +148,6 @@ class InAppBillingViewModel : ViewModel() {
                 billingUiViewState = billingUiViewState.copy(visible = true)
                 return@launch
             }
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "handleBuyButtonClicked encodedRapt: $encodedRapt")
             SettingsManager(ContextProvider.context).setAuthStatus(!passwdInputViewState.checked)
             submitBuyAction(authToken = encodedRapt)
         }
@@ -192,7 +197,6 @@ class InAppBillingViewModel : ViewModel() {
     }
 
     private fun handleClickAction(action: BAction?) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "handleClickAction action: $action (contexts: ${action?.actionContext?.map { it.toHexString() }}")
         when (action?.type) {
             ActionType.SHOW -> {
                 when (action.uiInfo?.uiType) {
@@ -253,7 +257,6 @@ class InAppBillingViewModel : ViewModel() {
                     }
 
                     UIType.BILLING_PROFILE_EXISTING_INSTRUMENT -> {
-                        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "switch payment method context: ${action.actionContext[0].toHexString()}")
                         showLoading()
                         billingUiViewState.actionContextList.addAll(action.actionContext)
                         viewModelScope.launch(Dispatchers.IO) {
@@ -262,7 +265,6 @@ class InAppBillingViewModel : ViewModel() {
                     }
 
                     UIType.PURCHASE_CART_PAYMENT_OPTIONS_LINK -> {
-                        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "open payment option page context: ${action.actionContext[0].toHexString()}")
                         showLoading()
                         billingUiViewState.actionContextList.addAll(action.actionContext)
                         viewModelScope.launch(Dispatchers.IO) {
@@ -326,7 +328,6 @@ class InAppBillingViewModel : ViewModel() {
         val screenMap = buyFlowResult.acquireResult.screenMap
         val targetScreenId = action.screenId ?: return failAction()
         val showScreen = screenMap[targetScreenId] ?: return failAction()
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "handleAcquireResult, showScreen:$showScreen result:${buyFlowResult.acquireResult}")
         if (action.type != ActionType.SHOW) return failAction()
         lastBuyFlowResult = buyFlowResult
         val previousScreenId = currentScreenId
@@ -370,7 +371,6 @@ class InAppBillingViewModel : ViewModel() {
     suspend fun loadData(context: Context) {
         val param = startParams?.getString(KEY_IAP_SHEET_UI_PARAM)
             ?: throw RuntimeException("get action param failed")
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "loadData param:$param")
         showLoading()
         doLoadSheetUIAction(context, param)
     }
@@ -378,13 +378,13 @@ class InAppBillingViewModel : ViewModel() {
     fun onSecureVerificationComplete(success: Boolean, data: Intent?) {
         if (success && data != null) {
             val callbackToken = data.getByteArrayExtra(
-                "com.google.android.gms.wallet.firstparty.EXTRA_INTEGRATOR_CALLBACK_DATA_TOKEN"
+                "$GMS_PACKAGE_NAME.wallet.firstparty.EXTRA_INTEGRATOR_CALLBACK_DATA_TOKEN"
             )
             val imeicd = callbackToken?.let {
                 Base64.encodeToString(it, Base64.URL_SAFE or Base64.NO_WRAP)
             }
             val securePaymentsPayload = data.getParcelableExtra<SecurePaymentsPayload>(
-                "com.google.android.gms.wallet.firstparty.SECURE_PAYMENTS_PAYLOAD"
+                "$GMS_PACKAGE_NAME.wallet.firstparty.SECURE_PAYMENTS_PAYLOAD"
             )
             val securePayload = securePaymentsPayload?.let { payload ->
                 SecurePayloadData(

@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2013 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -10,7 +11,7 @@ buildscript {
     ext.cronetVersion = '102.5005.125'
     ext.wearableVersion = '0.1.1'
 
-    ext.kotlinVersion = '1.9.22'
+    ext.kotlinVersion = '2.4.10'
     ext.coroutineVersion = '1.7.3'
 
     ext.annotationVersion = '1.7.1'
@@ -73,37 +74,6 @@ buildscript {
     }
 }
 
-def execResult(... args) {
-    providers.exec { commandLine args }.standardOutput.asText.get()
-}
-
-def ignoreGit = providers.environmentVariable('GRADLE_MICROG_VERSION_WITHOUT_GIT').getOrElse('0') == '1'
-def gmsVersion = "25.24.32"
-def gmsVersionCode = Integer.parseInt(gmsVersion.replaceAll('\\.', ''))
-def vendingVersion = "40.2.26"
-def vendingVersionCode = Integer.parseInt(vendingVersion.replaceAll('\\.', ''))
-def gitVersionBase = !ignoreGit ? execResult('git', 'describe', '--tags', '--abbrev=0', '--match=v[0-9]*').trim().substring(1) : "v0.0.0.$gmsVersionCode"
-def gitCommitCount = !ignoreGit ? Integer.parseInt(execResult('git', 'rev-list', '--count', "v$gitVersionBase..HEAD").trim()) : 0
-def gitCommitId = !ignoreGit ? execResult('git', 'show-ref', '--abbrev=7', '--head', 'HEAD').trim().split(' ')[0] : '0000000'
-def gitDirty = false
-if (!ignoreGit) {
-  execResult('git', 'status', '--porcelain').lines().each { stat ->
-    def status = stat.substring(0,2)
-    def file = stat.substring(3)
-    if (status == '??') {
-      if (subprojects.any { p -> file.startsWith(p.name + '/') }) {
-        logger.lifecycle('Dirty file: {} (untracked)', file)
-        gitDirty = true
-      } else {
-        logger.info('New file outside module: {} (ignored for dirty check)', file)
-      }
-    } else {
-      logger.lifecycle('Dirty file: {} (changed)', file)
-      gitDirty = true
-    }
-  }
-}
-
 // RE specific version name and code
 def ourGmsVersionCode = 255070225
 def ourGmsVersionName = "7.2.2"
@@ -115,8 +85,8 @@ logger.lifecycle('Starting build for GMS version {} ({})...', ourGmsVersionName,
 allprojects {
     apply plugin: 'idea'
 
-    group = 'org.microg.gms'
-    version = ourGmsVersionName
+    group = providers.gradleProperty('group').getOrElse('com.github.Nich87.MicroG-RE')
+    version = providers.gradleProperty('version').getOrElse('7.2.2-npatch2')
     ext.vendingAppVersionName = ourVendingVersionName
     ext.vendingAppVersionCode = ourVendingVersionCode
     ext.appVersionCode = ourGmsVersionCode
@@ -128,5 +98,21 @@ subprojects {
         mavenCentral()
         google()
         maven {url 'https://developer.huawei.com/repo/'}
+    }
+}
+
+configure([project(':play-services-core-proto'), project(':safe-parcel-processor')]) {
+    apply plugin: 'maven-publish'
+    plugins.withId('java') {
+        java.withSourcesJar()
+    }
+    afterEvaluate {
+        publishing {
+            publications {
+                release(MavenPublication) {
+                    from components.java
+                }
+            }
+        }
     }
 }

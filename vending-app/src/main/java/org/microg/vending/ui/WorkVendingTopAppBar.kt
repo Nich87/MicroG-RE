@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2025 e foundation
  * SPDX-License-Identifier: Apache-2.0
@@ -42,7 +43,7 @@ fun WorkVendingTopAppBar() = TopAppBar(
             )
         }
     },
-    colors = TopAppBarDefaults.smallTopAppBarColors(
+    colors = TopAppBarDefaults.topAppBarColors(
         containerColor = MaterialTheme.colorScheme.primaryContainer,
         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
     )

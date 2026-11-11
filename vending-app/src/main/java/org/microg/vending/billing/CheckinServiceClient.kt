@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -13,6 +14,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import com.google.android.gms.checkin.internal.ICheckinService
+import com.android.vending.BuildConfig
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -31,8 +33,8 @@ object CheckinServiceClient {
                     serviceQueue.clear()
                 }
             }
-            val intent = Intent("com.google.android.gms.checkin.BIND_TO_SERVICE")
-            intent.setPackage("com.google.android.gms")
+            val intent = Intent("${BuildConfig.BASE_PACKAGE_NAME}.android.gms.checkin.BIND_TO_SERVICE")
+            intent.setPackage("${BuildConfig.BASE_PACKAGE_NAME}.android.gms")
             val res = context.bindService(intent, conn, BIND_AUTO_CREATE)
             if (!res) return ""
             try {

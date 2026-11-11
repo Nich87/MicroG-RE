@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.microg.gms.common.Constants
 import org.microg.vending.billing.ADD_PAYMENT_METHOD_URL
+import org.microg.vending.billing.GMS_PACKAGE_NAME
 import org.microg.vending.billing.TAG
 import org.microg.vending.billing.proto.SessionRestoreOption
 import java.util.UUID
@@ -127,8 +129,8 @@ class InAppBillingHostActivity : ComponentActivity() {
     }
 
     private fun openWalletPurchaseManager(account: Account, securePaymentsPayload: SecurePaymentsPayload) {
-        val intent = Intent("com.google.android.gms.wallet.firstparty.ACTION_PURCHASE_MANAGER")
-        intent.`package` = Constants.GMS_PACKAGE_NAME
+        val intent = Intent("$GMS_PACKAGE_NAME.wallet.firstparty.ACTION_PURCHASE_MANAGER")
+        intent.`package` = GMS_PACKAGE_NAME
 
         val applicationParameters = ApplicationParameters()
         applicationParameters.extraParams = Bundle()
@@ -143,11 +145,11 @@ class InAppBillingHostActivity : ComponentActivity() {
             sessionRestoreOption = SessionRestoreOption.SESSION_RESTORE_OPTION_REQUIRE.value
         }
 
-        intent.putExtra("com.google.android.gms.wallet.buyFlowConfig", buyFlowConfig)
-        intent.putExtra("com.google.android.gms.wallet.account", account)
-        intent.putExtra("com.google.android.gms.wallet.firstparty.SECURE_PAYMENTS_PAYLOAD", securePaymentsPayload)
-        intent.putExtra("com.google.android.gms.wallet.firstparty.SUPPORTS_SECURE_PAYMENTS_PAYLOAD_PROTO", false)
-        intent.putExtra("com.google.android.gms.wallet.intentBuildTimeMs", SystemClock.elapsedRealtime())
+        intent.putExtra("$GMS_PACKAGE_NAME.wallet.buyFlowConfig", buyFlowConfig)
+        intent.putExtra("$GMS_PACKAGE_NAME.wallet.account", account)
+        intent.putExtra("$GMS_PACKAGE_NAME.wallet.firstparty.SECURE_PAYMENTS_PAYLOAD", securePaymentsPayload)
+        intent.putExtra("$GMS_PACKAGE_NAME.wallet.firstparty.SUPPORTS_SECURE_PAYMENTS_PAYLOAD_PROTO", false)
+        intent.putExtra("$GMS_PACKAGE_NAME.wallet.intentBuildTimeMs", SystemClock.elapsedRealtime())
         startActivityForResult(intent, PURCHASE_MANAGER_REQUEST_CODE)
     }
 
@@ -169,7 +171,6 @@ class InAppBillingHostActivity : ComponentActivity() {
     }
 
     private fun finishWithResult(result: Bundle) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "InAppBillingHostActivity.finishWithResult $result")
         val resultIntent = Intent()
         resultIntent.putExtras(result)
         setResult(RESULT_OK, resultIntent)
@@ -179,12 +180,10 @@ class InAppBillingHostActivity : ComponentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         when (requestCode) {
             ADD_PAYMENT_REQUEST_CODE -> {
-                if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "add payment method resultCode: $resultCode, data: $data")
                 loadView(false)
             }
 
             PURCHASE_MANAGER_REQUEST_CODE -> {
-                Log.d(TAG, "PurchaseManager result: resultCode=$resultCode, data=$data, extras=${data?.extras?.keySet()}")
                 when (resultCode) {
                     RESULT_OK -> {
                         // 3DS2 verification successful — notify ViewModel to proceed with completing the purchase

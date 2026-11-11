@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 package org.microg.vending.billing.core
 
 import android.content.Context
@@ -213,7 +214,7 @@ class HttpClient {
         cache: Boolean = false
     ): O {
         val response = (if (cache) clientWithCache else client).submitForm(
-            formParameters = ParametersImpl(form.mapValues { listOf(it.key) }),
+            formParameters = ParametersImpl(form.mapValues { listOf(it.value) }),
             encodeInQuery = false
         ) {
             url(url.asUrl(params))

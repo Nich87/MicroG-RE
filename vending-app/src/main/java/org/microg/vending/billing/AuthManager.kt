@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -19,9 +20,10 @@ object AuthManager {
 
         if (account == null) return null
 
-        val deviceCheckInConsistencyToken = CheckinServiceClient.getConsistencyToken(context)
-        val gsfId = GServices.getString(context.contentResolver, "android_id", "0")!!.toBigInteger().toString(16)
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "gsfId: $gsfId, deviceDataVersionInfo: $deviceCheckInConsistencyToken")
+        val registration = NPatchBillingRegistration.ensure(context)
+        val deviceCheckInConsistencyToken = registration.consistencyToken
+        val gsfId = java.lang.Long.toUnsignedString(registration.androidId, 16)
+        Log.i(TAG, "Billing registration source=NPatch, consistencyTokenPresent=${deviceCheckInConsistencyToken.isNotEmpty()}")
         val accountManager: AccountManager = AccountManager.get(context)
         val future = accountManager.getAuthToken(account, TOKEN_TYPE, false, null, null)
         val bundle = future.getResult(15, TimeUnit.SECONDS)

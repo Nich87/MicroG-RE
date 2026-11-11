@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -48,12 +49,10 @@ class WebViewHelper(
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "onPageFinished $url")
                 webView.visibility = View.VISIBLE
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "Navigating to $url")
                 // TODO: figure out to not embed page of third parties, but allow bank confirmations
 //                if (allowedPrefixes.isNotEmpty() && allowedPrefixes.none { url.startsWith(it) }) {
 //                    try {
@@ -101,7 +100,6 @@ class WebViewHelper(
             if (authUrl.contains("WILL_NOT_SIGN_IN")) {
                 throw RuntimeException("Would not sign in")
             }
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "Opening $authUrl")
             webView.post {
                 if (SDK_INT >= 21) {
                     CookieManager.getInstance().removeAllCookies {
@@ -152,12 +150,10 @@ class WebViewHelper(
                 webViewClient = object : WebViewClientCompat() {
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        Log.d(TAG, "sub_window starts loading: $url")
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        Log.d(TAG, "sub_window loaded : $url")
                         visibility = View.VISIBLE
                     }
                 }

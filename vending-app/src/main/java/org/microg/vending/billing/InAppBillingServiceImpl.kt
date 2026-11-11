@@ -1,3 +1,4 @@
+// Modified by NPatch contributors for embedded billing integration (2026).
 /*
  * SPDX-FileCopyrightText: 2024 microG Project Team
  * SPDX-License-Identifier: Apache-2.0
@@ -17,7 +18,6 @@ import androidx.core.app.PendingIntentCompat
 import androidx.core.os.bundleOf
 import com.android.billingclient.api.BillingClient.BillingResponseCode
 import com.android.billingclient.api.BillingClient.ProductType
-import com.android.vending.VendingPreferences
 import com.android.vending.billing.IInAppBillingCreateAlternativeBillingOnlyTokenCallback
 import com.android.vending.billing.IInAppBillingCreateExternalPaymentReportingDetailsCallback
 import com.android.vending.billing.IInAppBillingDelegateToBackendCallback
@@ -93,7 +93,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
             integratorCallbackData: String? = null,
             securePayload: SecurePayloadData? = null
         ): BuyFlowResult {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "acquireRequest(cacheKey=$cacheKey, actionContexts=${actionContexts.map { it.toHexString() }}, authToken=$authToken)")
             val buyFlowCacheEntry = buyFlowCacheMap[cacheKey] ?: return BuyFlowResult(
                 null, null, resultBundle(BillingResponseCode.DEVELOPER_ERROR, "Parameter check error.")
             )
@@ -128,7 +127,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
                 if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "acquireRequest", e)
                 return BuyFlowResult(null, buyFlowCacheEntry.account, resultBundle(BillingResponseCode.DEVELOPER_ERROR, "Internal error."))
             }
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "acquireRequest acquireParsedResult: ${coreResult.acquireParsedResult}")
             buyFlowCacheEntry.lastAcquireResult = coreResult
             if (coreResult.acquireParsedResult.action?.droidGuardMap?.isNotEmpty() == true) {
                 DroidGuardClient.getResults(context, "phonesky_acquire_flow", coreResult.acquireParsedResult.action.droidGuardMap).addOnCompleteListener { task ->
@@ -194,7 +192,7 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         packageName: String,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "isBillingSupported: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
@@ -228,7 +226,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         type: String?,
         skusBundle: Bundle?
     ): Bundle {
-        Log.d(TAG, "getSkuDetails(apiVersion=$apiVersion, packageName=$packageName, type=$type, skusBundle=$skusBundle)")
         return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Not yet implemented")
     }
 
@@ -239,7 +236,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         type: String?,
         developerPayload: String?
     ): Bundle {
-        if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "getBuyIntent(apiVersion=$apiVersion, packageName=$packageName, sku=$sku, type=$type, developerPayload=$developerPayload)")
         return runCatching { getBuyIntentExtraParams(apiVersion, packageName!!, sku!!, type!!, developerPayload, null) }
             .getOrDefault(resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Not yet implemented"))
     }
@@ -259,7 +255,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         packageName: String?,
         purchaseToken: String?
     ): Int {
-        Log.d(TAG, "consumePurchase(apiVersion=$apiVersion, packageName=$packageName, purchaseToken=$purchaseToken)")
         return BillingResponseCode.BILLING_UNAVAILABLE
     }
 
@@ -276,7 +271,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         type: String?,
         developerPayload: String?
     ): Bundle {
-        Log.d(TAG, "getBuyIntentToReplaceSkus(apiVersion=$apiVersion, packageName=$packageName, oldSkus=$oldSkus, newSku=$newSku, type=$type, developerPayload=$developerPayload)")
         return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Not yet implemented")
     }
 
@@ -288,37 +282,21 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         developerPayload: String?,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "getBuyIntentExtraParams: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
-        Log.d(TAG, "getBuyIntentExtraParams(apiVersion=$apiVersion, packageName=$packageName, sku=$sku, type=$type, developerPayload=$developerPayload, extraParams=$extraParams)")
 
 
         val skuSerializedDocIdList =
             extraParams?.getStringArrayList("SKU_SERIALIZED_DOCID_LIST")
-        skuSerializedDocIdList?.forEach {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "serializedDocId=$it")
-        }
         val skuOfferTypeList = extraParams?.getIntegerArrayList("SKU_OFFER_TYPE_LIST")
-        skuOfferTypeList?.forEach {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "skuOfferType=$it")
-        }
         val skuOfferIdTokenList = extraParams?.getStringArrayList("SKU_OFFER_ID_TOKEN_LIST")
-        skuOfferIdTokenList?.forEach {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "skuOfferIdToken=$it")
-        }
-        val accountName = extraParams?.getString("accountName")?.also {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "accountName=$it")
-        }
-        val oldSkuPurchaseToken = extraParams?.getString("oldSkuPurchaseToken")?.also {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "oldSkuPurchaseToken=$it")
-        }
-        val oldSkuPurchaseId = extraParams?.getString("oldSkuPurchaseId")?.also {
-            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "oldSkuPurchaseId=$it")
-        }
+        val accountName = extraParams?.getString("accountName")
+        val oldSkuPurchaseToken = extraParams?.getString("oldSkuPurchaseToken")
+        val oldSkuPurchaseId = extraParams?.getString("oldSkuPurchaseId")
 
         extraParams?.let {
             it.remove("skusToReplace")
@@ -371,13 +349,12 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         continuationToken: String?,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "getPurchaseHistory: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)
         extraParams?.size()
-        Log.d(TAG, "getPurchaseHistory(apiVersion=$apiVersion, packageName=$packageName, type=$type, continuationToken=$continuationToken, extraParams=$extraParams)")
         val account = try {
             getPreferredAccount(extraParams)
         } catch (e: RuntimeException) {
@@ -429,10 +406,9 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         type: String?,
         extraParams: Bundle?
     ): Int {
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
         val result = isBillingSupported(apiVersion, type, packageName, extraParams)
-        Log.d(TAG, "isBillingSupportedExtraParams(apiVersion=$apiVersion, packageName=$packageName, type=$type, extraParams=$extraParams)=$result")
         return result.getInt("RESPONSE_CODE")
     }
 
@@ -443,13 +419,12 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         continuationToken: String?,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "getPurchasesExtraParams: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
-        Log.d(TAG, "getPurchasesExtraParams(apiVersion=$apiVersion, packageName=$packageName, type=$type, continuationToken=$continuationToken, extraParams=$extraParams)")
         if (apiVersion < 7 && extraParams != null) {
             return resultBundle(BillingResponseCode.DEVELOPER_ERROR, "Parameter check error.")
         }
@@ -476,6 +451,7 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         result.putStringArrayList("INAPP_PURCHASE_ITEM_LIST", itemList)
         result.putStringArrayList("INAPP_PURCHASE_DATA_LIST", dataList)
         result.putStringArrayList("INAPP_DATA_SIGNATURE_LIST", signatureList)
+        Log.i("NPatch-Billing", "purchases_query count=${itemList.size}")
         return resultBundle(BillingResponseCode.OK, "", result)
     }
 
@@ -485,13 +461,13 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         purchaseToken: String,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        Log.i("NPatch-Billing", "consume_request")
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "consumePurchaseExtraParams: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
-        Log.d(TAG, "consumePurchaseExtraParams(apiVersion=$apiVersion, packageName=$packageName, purchaseToken=$purchaseToken, extraParams=$extraParams)")
         val account = try {
             getPreferredAccount(extraParams)
         } catch (e: RuntimeException) {
@@ -512,12 +488,13 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
             }
             runBlocking { deferred.await() }
         } catch (e: RuntimeException) {
+            Log.w("NPatch-Billing", "consume_failed exception=${e.javaClass.simpleName}")
             return resultBundle(BillingResponseCode.DEVELOPER_ERROR, e.message)
         } catch (e: Exception) {
             Log.e(TAG, "consumePurchaseExtraParams", e)
             return resultBundle(BillingResponseCode.DEVELOPER_ERROR, "Internal error.")
         }
-
+        Log.i("NPatch-Billing", "consume_result code=${coreResult.getCode()}")
         return coreResult.resultMap.toBundle()
     }
 
@@ -529,7 +506,6 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         extraParams: Bundle?
     ): Bundle {
         extraParams?.size()
-        Log.d(TAG, "getPriceChangeConfirmationIntent(apiVersion=$apiVersion, packageName=$packageName, sku=$sku, type=$type, extraParams=$extraParams)")
         return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Not yet implemented")
     }
 
@@ -540,14 +516,13 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         skuBundle: Bundle?,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "getSkuDetailsExtraParams: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
         skuBundle?.size()
-        Log.d(TAG, "getSkuDetailsExtraParams(apiVersion=$apiVersion, packageName=$packageName, type=$type, skusBundle=$skuBundle, extraParams=$extraParams)")
         val account = try {
             getPreferredAccount(extraParams)
         } catch (e: RuntimeException) {
@@ -607,13 +582,12 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         purchaseToken: String?,
         extraParams: Bundle?
     ): Bundle {
-        if (!VendingPreferences.isBillingEnabled(context)) {
+        if (!NPatchBillingBridge.isBillingEnabled(context)) {
             Log.w(TAG, "acknowledgePurchase: Billing is disabled")
             return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Billing is disabled")
         }
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         extraParams?.size()
-        Log.d(TAG, "acknowledgePurchase(apiVersion=$apiVersion, packageName=$packageName, purchaseToken=$purchaseToken, extraParams=$extraParams)")
         val account = try {
             getPreferredAccount(extraParams)
         } catch (e: RuntimeException) {
@@ -650,12 +624,11 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
         extraParams: Bundle?
     ): Bundle {
         extraParams?.size()
-        Log.d(TAG, "o(apiVersion=$apiVersion, packageName=$packageName, arg3=$arg3, extraParams=$extraParams)")
         return resultBundle(BillingResponseCode.BILLING_UNAVAILABLE, "Not yet implemented")
     }
 
     override fun showInAppMessages(apiVersion: Int, packageName: String?, extraParams: Bundle?, callback: IInAppBillingServiceCallback?) {
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         Log.d(TAG, "showInAppMessages $apiVersion packageName:$packageName bundle:${bundleToMap(extraParams)}")
         try {
             callback?.callback(null)
@@ -665,7 +638,7 @@ class InAppBillingServiceImpl(private val context: Context) : IInAppBillingServi
     }
 
     override fun getBillingConfig(apiVersion: Int, packageName: String?, bundle: Bundle?, callback: IInAppBillingGetBillingConfigCallback) {
-        val packageName = PackageUtils.getAndCheckCallingPackage(context, packageName)!!
+        val packageName = PackageUtils.getAndCheckCallingPackageWithoutSpoofing(context, packageName)!!
         Log.d(TAG, "getBillingConfig apiVersion:$apiVersion packageName:$packageName bundle:$bundle")
         val result = resultBundle(BillingResponseCode.OK, "", bundleOf(
             "BILLING_CONFIG" to JSONObject().apply { put("countryCode", Locale.getDefault().country) }.toString()
