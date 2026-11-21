@@ -75,8 +75,8 @@ buildscript {
 }
 
 // RE specific version name and code
-def ourGmsVersionCode = 255070225
-def ourGmsVersionName = "7.2.2"
+def ourGmsVersionCode = 255070313
+def ourGmsVersionName = "7.3.1"
 def ourVendingVersionCode = ourGmsVersionCode
 def ourVendingVersionName = ourGmsVersionName
 
@@ -98,6 +98,17 @@ subprojects {
         mavenCentral()
         google()
         maven {url 'https://developer.huawei.com/repo/'}
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "1.8"
+        }
     }
 }
 
